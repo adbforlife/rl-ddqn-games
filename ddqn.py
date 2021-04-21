@@ -11,17 +11,17 @@ from keras import backend as K
 
 import tensorflow as tf
 
-EPISODES = 3
+EPISODES = 1000
 
 class DQNAgent:
     def __init__(self, state_size, action_size):
         self.state_size = state_size
         self.action_size = action_size
         self.memory = deque(maxlen=2000)
-        self.gamma = 0.95    # discount rate
+        self.gamma = 0.995    # discount rate
         self.epsilon = 1.0  # exploration rate
         self.epsilon_min = 0.01
-        self.epsilon_decay = 0.99
+        self.epsilon_decay = 0.9999
         self.learning_rate = 0.001
         self.model = self._build_model()
         self.target_model = self._build_model()
@@ -45,8 +45,14 @@ class DQNAgent:
     def _build_model(self):
         # Neural Net for Deep-Q learning Model
         model = Sequential()
-        model.add(Dense(24, input_dim=self.state_size, activation='relu'))
-        model.add(Dense(24, activation='relu'))
+        LAY = 128
+        LAY2 = 24
+        model.add(Dense(LAY, input_dim=self.state_size, activation='relu'))
+        model.add(Dense(LAY, activation='relu'))
+        model.add(Dense(LAY, input_dim=LAY, activation='relu'))
+        model.add(Dense(LAY, activation='relu'))
+        model.add(Dense(LAY2, input_dim=LAY, activation='relu'))
+        model.add(Dense(LAY2, activation='relu'))
         model.add(Dense(self.action_size, activation='linear'))
         model.compile(loss=self._huber_loss,
                       optimizer=Adam(lr=self.learning_rate))
@@ -88,7 +94,7 @@ class DQNAgent:
 
 
 if __name__ == "__main__":
-    env = gym.make('CartPole-v1')
+    env = gym.make('Breakout-ram-v0')
     state_size = env.observation_space.shape[0]
     action_size = env.action_space.n
     agent = DQNAgent(state_size, action_size)
@@ -100,24 +106,35 @@ if __name__ == "__main__":
         state = env.reset()
         state = np.reshape(state, [1, state_size])
         for time in range(500):
-            # env.render()
+            env.render()
             action = agent.act(state)
             next_state, reward, done, _ = env.step(action)
             #reward = reward if not done else -10
+            '''
             x,x_dot,theta,theta_dot = next_state
             r1 = (env.x_threshold - abs(x)) / env.x_threshold - 0.8
             r2 = (env.theta_threshold_radians - abs(theta)) / env.theta_threshold_radians - 0.5
             reward = r1 + r2
+            '''
             
             next_state = np.reshape(next_state, [1, state_size])
             agent.memorize(state, action, reward, next_state, done)
             state = next_state
             if done:
                 agent.update_target_model()
-                print("episode: {}/{}, score: {}, e: {:.2}"
+                print("episode: {}/{}, time: {}, e: {:.2}"
                       .format(e, EPISODES, time, agent.epsilon))
                 break
             if len(agent.memory) > batch_size:
                 agent.replay(batch_size)
-        # if e % 10 == 0:
-        #     agent.save("./save/cartpole-ddqn.h5")
+            if time % 10 == 0:
+                print(f'time {time}')
+        for t in range(1000):
+            env.render()
+            state = np.reshape(state, [1, state_size])
+            state, reward, done, info = env.step(agent.act(state))
+            if done:
+                print(f"Episode finished after {t+1} timesteps")
+                break
+        if e % 10 == 0:
+            agent.save(f"./save/breakout-ddqn-{e}.h5")
