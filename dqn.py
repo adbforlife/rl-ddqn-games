@@ -8,7 +8,8 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
-EPISODES = 10
+EPISODES = 100
+MAX_TIME = 100
 
 class DQNAgent:
     def __init__(self, state_size, action_size):
@@ -76,15 +77,18 @@ if __name__ == "__main__":
     for e in range(EPISODES):
         state = env.reset()
         state = np.reshape(state, [1, state_size])
-        for time in range(500):
+        for time in range(MAX_TIME):
+            if (time+1) % 10 == 0:
+                print(f"time {time+1}/{MAX_TIME}")
             env.render()
             action = agent.act(state)
             next_state, reward, done, _ = env.step(action)
+            print(reward)
             reward = reward if not done else -10
             next_state = np.reshape(next_state, [1, state_size])
             agent.memorize(state, action, reward, next_state, done)
             state = next_state
-            if done:
+            if done or time == MAX_TIME - 1:
                 print("episode: {}/{}, score: {}, e: {:.2}"
                       .format(e, EPISODES, time, agent.epsilon))
                 break
@@ -93,9 +97,10 @@ if __name__ == "__main__":
         state = env.reset()
         for t in range(1000):
             env.render()
+            state = np.reshape(state, [1, state_size])
             state, reward, done, info = env.step(agent.act(state))
             if done:
                 print(f"Episode finished after {t+1} timesteps")
                 break
-        # if e % 10 == 0:
-        #     agent.save("./save/cartpole-dqn.h5")
+        if e % 10 == 0:
+            agent.save("./save/cartpole-dqn.h5")
