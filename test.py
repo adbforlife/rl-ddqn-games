@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
@@ -9,9 +8,7 @@ from collections import deque
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
-
-EPISODES = 1000
-
+import time
 class DQNAgent:
     def __init__(self, state_size, action_size):
         self.state_size = state_size
@@ -19,7 +16,7 @@ class DQNAgent:
         print(action_size)
         self.memory = deque(maxlen=2000)
         self.gamma = 0.995    # discount rate
-        self.epsilon = 1.0  # exploration rate
+        self.epsilon = 0.05  # exploration rate
         self.epsilon_min = 0.01
         self.epsilon_decay = 0.9999
         self.learning_rate = 0.0001
@@ -76,7 +73,6 @@ class DQNAgent:
         return np.argmax(act_values[0])  # returns action
 
     def replay(self, batch_size):
-        print(len(self.memory))
         minibatch = random.sample(self.memory, batch_size)
         states, targets_f = [], []
         for state, action, reward, next_state, done in minibatch:
@@ -103,43 +99,28 @@ class DQNAgent:
         self.model.save_weights(name)
 
 
-if __name__ == "__main__":
-    env = gym.make('Breakout-ram-v0')
-    state_size = env.observation_space.shape[0]
-    action_size = env.action_space.n
-    agent = DQNAgent(state_size, action_size)
-    # agent.load("./save/cartpole-dqn.h5")
-    done = False
-    batch_size = 32
-
-    for e in range(EPISODES):
-        state = env.reset()
+env = gym.make('Breakout-ram-v0')
+state_size = env.observation_space.shape[0]
+action_size = env.action_space.n
+agent = DQNAgent(state_size, action_size)
+agent.load("./save/breakout-dqn-50.h5")
+def round():
+    state = env.reset()
+    rewards = 0
+    for t in range(2000):
+        env.render()
         state = np.reshape(state, [1, state_size])
-        for time in range(500):
-            env.render()
-            action = agent.act(state)
-            next_state, reward, done, _ = env.step(action)
-            reward = reward if not done else -10
-            next_state = np.reshape(next_state, [1, state_size])
-            agent.memorize(state, action, reward, next_state, done)
-            state = next_state
-            if done:
-                print("episode: {}/{}, time: {}, e: {:.2}"
-                      .format(e, EPISODES, time, agent.epsilon))
-                break
-            if len(agent.memory) > batch_size:
-                loss = agent.replay(batch_size)
-                # Logging training loss every 10 timesteps
-                if time % 10 == 0:
-                    print("episode: {}/{}, time: {}, loss: {:.4f}"
-                        .format(e, EPISODES, time, loss))  
-        state = env.reset()
-        for t in range(1000):
-            env.render()
-            state = np.reshape(state, [1, state_size])
-            state, reward, done, info = env.step(agent.act(state))
-            if done:
-                print(f"Episode finished after {t+1} timesteps")
-                break
-        if e % 10 == 0:
-            agent.save(f"./save/breakout-dqn-{e}.h5")
+        state, reward, done, info = env.step(agent.act(state))
+        rewards += reward
+        if done:
+            print(f"Episode finished after {t+1} timesteps")
+            break
+    return t,rewards
+ts = []
+rs = []
+for _ in range(1000):
+    t,rewards = round()
+    ts.append(t)
+    rs.append(rewards)
+print(sum(ts) / len(ts))
+print(sum(rs) / len(rs))
